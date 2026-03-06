@@ -1,16 +1,17 @@
 name: Build and Push to GHCR
 
-# Fork 仓库可以正常构建，镜像会推送到 ghcr.io/<你的用户名>/<仓库名>-api
 on:
   push:
     branches:
       - main
       - develop
+      - cyxc/self-hosted
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
+      - cyxc/self-hosted
 
 env:
   REGISTRY: ghcr.io
