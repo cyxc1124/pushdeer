@@ -1,0 +1,36 @@
+# PushDeer API 独立镜像（不含 gorush）
+# 用于 gorush 已独立部署的场景，如 K8s
+#
+# 构建方式（在项目根目录执行）：
+#   docker build -f docker/web/Dockerfile.api -t pushdeer-api .
+#
+# 环境变量：
+#   REDIS_HOST - Redis 地址，默认 redis（与 K8s Service 名一致）
+#   DB_HOST, DB_DATABASE 等 - Laravel 数据库配置
+#   GO_PUSH_ADDRESS - gorush 地址，默认 127.0.0.1
+
+FROM webdevops/php-apache:8.0
+
+# vhost 配置
+COPY docker/web/vhost.conf /opt/docker/etc/httpd/vhost.conf
+
+# 初始化脚本（会执行 composer install、migrate 等）
+COPY docker/web/init.sh /opt/docker/provision/entrypoint.d/
+
+# 根据 REDIS_HOST 动态更新 session 配置（便于 K8s 指定 Redis Service）
+COPY docker/web/00-redis-session.sh /opt/docker/provision/entrypoint.d/
+RUN chmod +x /opt/docker/provision/entrypoint.d/00-redis-session.sh
+
+# PHP session 使用 Redis
+RUN echo "session.save_handler = redis\n" >> /opt/docker/etc/php/php.webdevops.ini
+RUN echo "session.save_path = 'tcp://redis:6379'\n" >> /opt/docker/etc/php/php.webdevops.ini
+RUN echo "session.gc_maxlifetime = '259200'\n" >> /opt/docker/etc/php/php.webdevops.ini
+
+# Laravel 定时任务（清理旧消息等）
+COPY docker/web/larave-cron /etc/cron.d/
+RUN chmod 0644 /etc/cron.d/larave-cron
+
+# 复制 API 代码
+COPY api /app/api
+
+EXPOSE 80
