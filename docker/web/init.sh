@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# 初始化 laravel
-cd /app/api && composer install && cp -n .env.example .env && php artisan key:generate && php artisan migrate --seed
-
-mkdir -p /app/api/storage
-chmod -R 0777 /app/api/storage
-
-mkdir -p /app/api/bootstrap/cache/
-chmod -R 0777 /app/api/bootstrap/cache/
+# 确保 storage 和 cache 目录权限正确（构建阶段已创建，此处仅做保障）
+mkdir -p /app/api/storage /app/api/bootstrap/cache
+chmod -R 0777 /app/api/storage /app/api/bootstrap/cache
