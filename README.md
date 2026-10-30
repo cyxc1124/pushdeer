@@ -159,20 +159,19 @@ function pushdeer_send($text, $desp = '', $type='text', $key = '[PUSHKEY]')
 
 首先请确保服务器(假设其IP或域名为$AAA)上支持docker和docker-compose。
 
-然后运行以下代码：
+以下命令仅用于首次安装。升级现有服务时保留 `api/.env`、APP_KEY 和数据卷，不要重新执行 `key:generate`。
 
 ```
-git clone https://github.com/easychen/pushdeer.git
+git clone --branch cyxc/self-hosted https://github.com/cyxc1124/pushdeer.git
 cd pushdeer
-docker-compose -f docker-compose.self-hosted.yml up --build -d
+test -f api/.env || cp api/.env.example api/.env
+docker compose -f docker-compose.self-hosted.yml build app
+docker compose -f docker-compose.self-hosted.yml run --rm --no-deps -v "$PWD/api/.env:/app/api/.env" app php artisan key:generate
+docker compose -f docker-compose.self-hosted.yml up -d
+docker compose -f docker-compose.self-hosted.yml exec app php artisan migrate --force
 ```
 
-如果你的服务器连接GitHub有困难，可以使用Gitee的代码，但需要核对是否为最新版本（有可能没同步）
-```
-git clone https://gitee.com/easychen/pushdeer.git
-cd pushdeer
-docker-compose -f docker-compose.self-hosted.yml up --build -d 
-```
+此维护分支以 `cyxc1124/pushdeer` 的 `cyxc/self-hosted` 为准；镜像仓库需核对该分支和新的 Dockerfile，不能直接使用上游旧版部署文件。
 
 > 如提示docker服务未安装/找不到/未启动，可在 docker-compose 前加 sudo 再试
 
@@ -245,12 +244,12 @@ docker run -e DB_DATABASE=* -e DB_HOST=* -e DB_PORT=*28740* -e DB_USERNAME=* -e 
 
 ### 下载代码
 
-```git clone https://github.com/easychen/pushdeer.git```
+```git clone --branch cyxc/self-hosted https://github.com/cyxc1124/pushdeer.git```
 
 
 ### 启动docker环境
 
-运行 `docker-compose up -d`，启动API。默认访问地址为`http://127.0.0.1:8800`。可修改`docker-compose.yml`调整端口。
+维护分支使用 PHP 8.4 / Laravel 13；首次初始化请按上面的 Compose 步骤执行，已有环境保留 APP_KEY、Redis 配置和数据库卷。默认访问地址为`http://127.0.0.1:8800`。本地回归及 API 独立镜像构建见 [api/UPGRADE.md](api/UPGRADE.md)。
 
 
 ### API 说明

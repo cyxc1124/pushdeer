@@ -18,7 +18,7 @@ class TokenLogin
     {
         // 拦截 token
         $token = $request->input('token');
-        if (strlen($token) > 0) {
+        if (is_string($token) && $token !== '') {
             session_id($token);
             session_start();
         }

@@ -1,43 +1,46 @@
-# PushDeer API 独立镜像（不含 gorush）
-# 用于 gorush 已独立部署的场景，如 K8s
-#
-# 构建方式（在项目根目录执行）：
-#   docker build -f docker/web/Dockerfile.api -t pushdeer-api .
-#
-# 环境变量：
-#   REDIS_HOST - Redis 地址，默认 redis（与 K8s Service 名一致）
-#   DB_HOST, DB_DATABASE 等 - Laravel 数据库配置
-#   GO_PUSH_ADDRESS - gorush 地址，默认 127.0.0.1
+FROM php:8.4.27-fpm-bookworm@sha256:1b6bb4f3d32dfbcd1e159d7bd47caa8852507f61666db7731d73f34acec781b6 AS base
 
-FROM webdevops/php-apache:8.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends apache2 supervisor unzip \
+    && docker-php-ext-install -j"$(nproc)" pdo_mysql bcmath \
+    && pecl install redis-6.3.0 \
+    && docker-php-ext-enable redis \
+    && a2enmod proxy_fcgi rewrite headers \
+    && rm -rf /var/lib/apt/lists/* /tmp/pear
 
-# vhost 配置
-COPY docker/web/vhost.conf /opt/docker/etc/httpd/vhost.conf
+COPY --from=composer:2.11.0@sha256:278dfc7bd35169965d03f87194816f43bf4e6b6ea61707c2114e52ad12fe24ce /usr/bin/composer /usr/local/bin/composer
+COPY docker/web/api-php.ini /usr/local/etc/php/conf.d/zz-pushdeer.ini
+COPY docker/web/api-fpm.conf /usr/local/etc/php-fpm.d/zz-pushdeer.conf
+COPY docker/web/api-apache.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/web/api-supervisord.conf /etc/supervisor/pushdeer.conf
+COPY --chmod=755 docker/web/api-entrypoint.sh /usr/local/bin/pushdeer-entrypoint
 
-# 初始化脚本（目录权限等轻量操作）
-COPY docker/web/init.sh /opt/docker/provision/entrypoint.d/
-
-# 根据 REDIS_HOST 动态更新 session 配置（便于 K8s 指定 Redis Service）
-COPY docker/web/00-redis-session.sh /opt/docker/provision/entrypoint.d/
-RUN chmod +x /opt/docker/provision/entrypoint.d/00-redis-session.sh
-
-# PHP session 使用 Redis
-RUN echo "session.save_handler = redis\n" >> /opt/docker/etc/php/php.webdevops.ini
-RUN echo "session.save_path = 'tcp://redis:6379'\n" >> /opt/docker/etc/php/php.webdevops.ini
-RUN echo "session.gc_maxlifetime = '259200'\n" >> /opt/docker/etc/php/php.webdevops.ini
-
-# Laravel 定时任务（清理旧消息等）
-COPY docker/web/larave-cron /etc/cron.d/
-RUN chmod 0644 /etc/cron.d/larave-cron
-
-# 复制 API 代码并在构建阶段安装依赖
-COPY api /app/api
 WORKDIR /app/api
-# .env 仅用于构建阶段（composer post-scripts 需要 Laravel 能启动），运行时由 K8s 环境变量覆盖
-RUN cp .env.example .env \
-    && composer install --no-dev --optimize-autoloader --no-interaction \
-    && rm -f .env \
-    && mkdir -p storage bootstrap/cache \
-    && chmod -R 0777 storage bootstrap/cache
 
+FROM base AS dependencies
+COPY api/composer.json api/composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
+COPY api ./
+RUN mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+    && composer dump-autoload --no-dev --no-scripts --optimize \
+    && php artisan package:discover --ansi \
+    && chown -R www-data:www-data storage bootstrap/cache
+
+FROM dependencies AS test
+RUN composer install --no-scripts --prefer-dist --no-interaction \
+    && php artisan package:discover --ansi
+CMD ["vendor/bin/phpunit", "--stderr"]
+
+FROM base AS api
+COPY --from=dependencies /app/api /app/api
 EXPOSE 80
+ENTRYPOINT ["pushdeer-entrypoint"]
+CMD ["supervisord", "--configuration", "/etc/supervisor/pushdeer.conf"]
+
+FROM api AS self-hosted
+COPY --chmod=755 docker/web/gorush /data/gorush
+COPY push /app/push
+COPY docker/web/supervisord-ios.conf /etc/supervisor/conf.d/push-ios.conf
+COPY docker/web/supervisord-clip.conf /etc/supervisor/conf.d/push-clip.conf
+
+FROM api AS runtime

@@ -30,6 +30,12 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'apple' => [
+        'client_ids' => array_values(array_filter(array_map('trim', explode(',', env('APPLE_CLIENT_IDS',
+            env('GO_PUSH_IOS_TOPIC', 'com.pushdeer.app.ios').','.env('GO_PUSH_IOS_CLIP_TOPIC', 'com.pushdeer.app.ios.Clip')
+        ))))),
+    ],
+
     'go_push' => [
         'address' => env('GO_PUSH_ADDRESS', '127.0.0.1'),
         'ios_port' => env('GO_PUSH_IOS_PORT', 8888),
