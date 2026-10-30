@@ -14,6 +14,8 @@ import uuid
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("image")
 parser.add_argument("--legacy-image", help="Old API image used only to write a synthetic session")
+parser.add_argument("--redis-password", default="local-only&?%$:/password",
+                    help="REDIS_PASSWORD value, including legacy null markers")
 args = parser.parse_args()
 host = os.environ.get("DOCKER_HOST") or subprocess.check_output(
     ["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"], text=True
@@ -26,6 +28,7 @@ network = prefix + "-net"
 containers = []
 checks = []
 password = "local-only&?%$:/password"
+redis_password = "" if args.redis_password.lower() in ("null", "(null)") else args.redis_password
 
 
 def run(*command, check=True):
@@ -105,10 +108,17 @@ echo json_encode(['status'=>curl_getinfo($c,CURLINFO_RESPONSE_CODE),'body'=>$b])
         database = start("db", "mariadb:11.8", environment={
             "MARIADB_ROOT_PASSWORD": "local-root-only", "MARIADB_DATABASE": "pushdeer",
             "MARIADB_USER": "pushdeer", "MARIADB_PASSWORD": password})
-        redis = start("redis", "redis:7.4-alpine", ("redis-server", "--requirepass", password))
+        redis_command = ["redis-server"]
+        if redis_password != "":
+            redis_command += ["--requirepass", redis_password]
+        redis = start("redis", "redis:7.4-alpine", redis_command)
+        redis_cli = ["exec"]
+        if redis_password != "":
+            redis_cli += ["-e", "REDISCLI_AUTH=" + redis_password]
+        redis_cli += [redis, "redis-cli"]
         mock = start("gorush", "python:3.11-slim", ("python", "/stub.py"), mounts=[str(stub) + ":/stub.py:ro"])
         ready(["exec", database, "healthcheck.sh", "--connect", "--innodb_initialized"])
-        ready(["exec", "-e", "REDISCLI_AUTH=" + password, redis, "redis-cli", "ping"])
+        ready([*redis_cli, "ping"])
         if args.legacy_image:
             run("run", "--rm", "--network", network, "--entrypoint", "php",
                 "-e", "DB_HOST=db", "-e", "DB_DATABASE=pushdeer", "-e", "DB_USERNAME=pushdeer", "-e", "DB_PASSWORD=" + password,
@@ -117,7 +127,7 @@ echo json_encode(['status'=>curl_getinfo($c,CURLINFO_RESPONSE_CODE),'body'=>$b])
             "APP_ENV": "production", "APP_DEBUG": "false", "APP_URL": "http://localhost",
             "APP_KEY": "base64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
             "DB_HOST": "db", "DB_DATABASE": "pushdeer", "DB_USERNAME": "pushdeer", "DB_PASSWORD": password,
-            "REDIS_HOST": "redis", "REDIS_PASSWORD": password, "CACHE_DRIVER": "file",
+            "REDIS_HOST": "redis", "REDIS_PASSWORD": args.redis_password, "CACHE_DRIVER": "file",
             "GO_PUSH_ADDRESS": "gorush", "GO_PUSH_IOS_PORT": "8088", "GO_PUSH_IOS_CLIP_PORT": "8089",
             "GO_PUSH_IOS_TOPIC": "fixture.ios", "GO_PUSH_IOS_CLIP_TOPIC": "fixture.ios.Clip",
             "MAX_PUSH_EVERY_USER_PER_MINUTE": "600", "MAX_PUSH_KEY_PER_TIME": "100", "MAX_PUSH_EXISTS_DAYS": "7",
@@ -148,14 +158,16 @@ $u->simple_token='SP-'.$name;$u->save();}'''
         verify("Token isolation after alternating requests", request("/user/info", {"token": one})["content"]["name"] == "one")
         verify("Array token rejected", request("/user/info", {"token": ["bad"]})["code"] == 80403)
         if args.legacy_image:
-            save_path = "tcp://redis:6379?auth=" + urllib.parse.quote(password, safe="")
+            save_path = "tcp://redis:6379"
+            if redis_password != "":
+                save_path += "?auth=" + urllib.parse.quote(redis_password, safe="")
             script = "session_id('legacyfixture123456');session_start();$_SESSION=['uid'=>1,'name'=>'one','level'=>1];session_write_close();"
             legacy = run("run", "--rm", "--network", network, "--entrypoint", "php", args.legacy_image,
                 "-d", "session.save_handler=redis", "-d", "session.save_path=" + json.dumps(save_path), "-r", script)
             if "PHP Warning" in legacy.stderr:
                 raise RuntimeError(legacy.stderr)
             verify("PHP 8.0 Redis session survives PHP 8.4 upgrade", request("/user/info", {"token": "legacyfixture123456"}).get("content", {}).get("name") == "one")
-            ttl = int(run("exec", "-e", "REDISCLI_AUTH=" + password, redis, "redis-cli", "ttl", "PHPREDIS_SESSION:legacyfixture123456").stdout)
+            ttl = int(run(*redis_cli, "ttl", "PHPREDIS_SESSION:legacyfixture123456").stdout)
             verify("Native session TTL remains three days", ttl > 259000)
         for name, kind, clip in [("ios", "ios", 0), ("clip", "ios", 1), ("android", "android", 0)]:
             verify("Register " + name, request("/device/reg", {"token": one, "name": name, "type": kind, "is_clip": clip, "device_id": name + "-fixture"})["code"] == 0)

@@ -46,6 +46,8 @@ jobs:
           tags: pushdeer-api:integration
           cache-from: type=gha
       - run: python3 api/tests/integration/runtime.py pushdeer-api:integration
+      - name: Legacy passwordless Redis sessions
+        run: python3 api/tests/integration/runtime.py pushdeer-api:integration --redis-password=null
 
   build-and-push:
     name: Build PushDeer API Image
