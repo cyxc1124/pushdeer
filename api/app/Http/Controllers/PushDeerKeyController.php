@@ -53,7 +53,7 @@ class PushDeerKeyController extends Controller
             }
         }
 
-        send_error('Key不存在或已删除', ErrorCode('ARGS'));
+        return send_error('Key不存在或已删除', ErrorCode('ARGS'));
     }
 
     public function regen(Request $request)
@@ -72,7 +72,7 @@ class PushDeerKeyController extends Controller
             }
         }
 
-        send_error('Key不存在或已删除', ErrorCode('ARGS'));
+        return send_error('Key不存在或已删除', ErrorCode('ARGS'));
     }
 
     public function remove(Request $request)
@@ -90,6 +90,6 @@ class PushDeerKeyController extends Controller
             }
         }
 
-        send_error('Key不存在或已删除', ErrorCode('ARGS'));
+        return send_error('Key不存在或已删除', ErrorCode('ARGS'));
     }
 }

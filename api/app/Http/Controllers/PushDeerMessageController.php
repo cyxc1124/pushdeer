@@ -71,8 +71,11 @@ class PushDeerMessageController extends Controller
 
         foreach ($keys as $thekey) {
             $key = PushDeerKey::where('key', $thekey)->get()->first();
+            if (!$key) {
+                return send_error('PushKey不存在或已删除', ErrorCode('ARGS'));
+            }
             $user = PushDeerUser::where('id', $key->uid)->get()->first();
-            if ($user->level < 1) {
+            if (!$user || $user->level < 1) {
                 return send_error('此账号已被停用', ErrorCode('ARGS'));
             }
 

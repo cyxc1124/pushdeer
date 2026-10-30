@@ -1,0 +1,15 @@
+.git
+.codegraph
+**/.DS_Store
+api/.env
+api/.env.*
+!api/.env.example
+api/vendor
+api/node_modules
+api/.phpunit.cache
+api/.phpunit.result.cache
+api/bootstrap/cache/*.php
+api/storage/logs/*
+api/storage/framework/cache/data/*
+api/storage/framework/sessions/*
+api/storage/framework/views/*

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use App\Models\PushDeerUser;
 use App\Models\PushDeerKey;
 use App\Models\PushDeerDevice;
@@ -35,7 +36,7 @@ class PushDeerUserController extends Controller
                 $the_user = [];
                 $the_user['apple_id'] = $info['uid'];
                 $the_user['email'] = $info['email'];
-                $the_user['name'] = @reset(explode('@', $info['email']));
+                $the_user['name'] = explode('@', $info['email'] ?? '')[0];
                 $the_user['level'] = 1;
 
                 $pd_user = PushDeerUser::create($the_user);
@@ -127,7 +128,7 @@ class PushDeerUserController extends Controller
             .urlencode($validated['code'])
             ."&grant_type=authorization_code";
 
-            $code_info = json_decode(file_get_contents($url), true);
+            $code_info = Http::timeout(5)->get($url)->json();
 
             if (!$code_info || !isset($code_info['access_token']) || !isset($code_info['unionid'])) {
                 return send_error("错误的Code", ErrorCode('REMOTE'));
@@ -159,14 +160,14 @@ class PushDeerUserController extends Controller
                 .urlencode($validated['code'])
                 ."&grant_type=authorization_code";
 
-                $code_info = json_decode(file_get_contents($url), true);
+                $code_info = Http::timeout(5)->get($url)->json();
 
                 if (!$code_info || !isset($code_info['access_token']) || !isset($code_info['unionid'])) {
                     return send_error("错误的Code", ErrorCode('REMOTE'));
                 }
             } else {
                 $url = "https://api2.pushdeer.com/login/unoinid?code=".urlencode($validated['code']);
-                $ret = json_decode(file_get_contents($url), true);
+                $ret = Http::timeout(5)->get($url)->json();
                 if (!$ret || !isset($ret['content']) || !isset($ret['content']['unionid'])) {
                     return send_error("错误的Code", ErrorCode('REMOTE'));
                 }
@@ -227,7 +228,7 @@ class PushDeerUserController extends Controller
                     $the_user = [];
                     $the_user['apple_id'] = $info['uid'];
                     $the_user['email'] = $info['email'];
-                    $the_user['name'] = @reset(explode('@', $info['email']));
+                    $the_user['name'] = explode('@', $info['email'] ?? '')[0];
                     $the_user['level'] = 1;
 
                     $pd_user = PushDeerUser::create($the_user);
@@ -285,7 +286,7 @@ class PushDeerUserController extends Controller
             .urlencode($validated['tokenorcode'])
             ."&grant_type=authorization_code";
 
-            $info = json_decode(file_get_contents($url), true);
+            $info = Http::timeout(5)->get($url)->json();
 
             if ($info && $info['unionid']) {
                 $identiy_string = $info['unionid'];

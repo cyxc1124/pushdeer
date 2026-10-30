@@ -43,7 +43,7 @@ class PushDeerDeviceController extends Controller
         $the_device['uid'] = $uid;
         $the_device['name'] = $validated['name'];
         $the_device['type'] = $type;
-        $the_device['is_clip'] = intval($validated['is_clip']);
+        $the_device['is_clip'] = intval($validated['is_clip'] ?? 0);
         $the_device['device_id'] = $validated['device_id'];
 
 

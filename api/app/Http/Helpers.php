@@ -1,4 +1,7 @@
 <?php
+use Firebase\JWT\JWK;
+use Firebase\JWT\JWT;
+use Illuminate\Support\Facades\Http;
 use Rookiejin\Xmpush\Builder;
 use Rookiejin\Xmpush\HttpBase;
 use Rookiejin\Xmpush\Sender;
@@ -12,8 +15,23 @@ use Rookiejin\Xmpush\TargetedMessage;
 
 function getUserDataFromIdentityToken($idToken)
 {
-    $appleSignInPayload = \AppleSignIn\ASDecoder::getAppleSignInPayload($idToken);
-    return [ 'email' => $appleSignInPayload->getEmail() , 'uid' => $appleSignInPayload->getUser() ];
+    try {
+        $keys = Http::timeout(5)->get('https://appleid.apple.com/auth/keys')->throw()->json();
+        if (!is_array($keys)) {
+            return false;
+        }
+        $payload = JWT::decode($idToken, JWK::parseKeySet($keys, 'RS256'));
+        if (($payload->iss ?? null) !== 'https://appleid.apple.com'
+            || !in_array($payload->aud ?? null, config('services.apple.client_ids'), true)
+            || !is_string($payload->sub ?? null) || $payload->sub === ''
+            || !isset($payload->exp)) {
+            return false;
+        }
+        return ['email' => $payload->email ?? null, 'uid' => $payload->sub];
+    } catch (\UnexpectedValueException | \DomainException | \InvalidArgumentException
+        | \Illuminate\Http\Client\ConnectionException | \Illuminate\Http\Client\RequestException $e) {
+        return false;
+    }
 }
 
 function http_result($content, $code=0)
@@ -29,7 +47,7 @@ function send_error($error, $code = '9999')
 
 function uid()
 {
-    return isset($_SESSION) && $_SESSION['uid'] ? $_SESSION['uid'] : false;
+    return $_SESSION['uid'] ?? false;
 }
 
 function ErrorCode($code)
