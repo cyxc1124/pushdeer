@@ -11,7 +11,8 @@ php -r '
     }
     $path = "tcp://{$host}:{$port}";
     $password = getenv("REDIS_PASSWORD");
-    if ($password !== false && $password !== "") {
+    // Compose passes Laravel no-password markers through as literal strings.
+    if ($password !== false && $password !== "" && !in_array(strtolower($password), ["null", "(null)"], true)) {
         $path .= "?auth=".rawurlencode($password);
     }
     file_put_contents("/usr/local/etc/php/conf.d/zzz-pushdeer-session.ini",

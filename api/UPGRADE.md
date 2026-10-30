@@ -14,6 +14,7 @@ docker run --rm --network none pushdeer-api:security-test
 docker run --rm --entrypoint composer pushdeer-api:security-test audit --no-interaction
 docker build -f docker/web/Dockerfile.api -t pushdeer-api:security-upgrade .
 python3 api/tests/integration/runtime.py pushdeer-api:security-upgrade
+python3 api/tests/integration/runtime.py pushdeer-api:security-upgrade --redis-password=null
 ```
 
 集成测试要求本机 Docker Unix socket，使用独立内部网络和一次性 MariaDB、带密码 Redis、模拟 gorush，不发布宿主机端口；退出时删除本次创建的容器、匿名数据卷和网络。不会连接生产服务。首次运行需下载 `mariadb:11.8`、`redis:7.4-alpine`、`python:3.11-slim`。
@@ -29,7 +30,7 @@ docker build --platform linux/amd64 -f docker/web/Dockerfile.api -t pushdeer-api
 ## 兼容性与修复边界
 
 - API 路径仍无 `/api` 前缀，JSON、表单、GET 推送和 `{code, content/error}` 响应保留。
-- 认证仍使用原生 PHP session。Redis host/port/password、默认数据库和 `PHPREDIS_SESSION:` 前缀沿用；序列化为 `php`，有效期仍为 259200 秒。不得把这些 token 改接 Laravel session 或 Sanctum。
+- 认证仍使用原生 PHP session。Redis host/port/password、默认数据库和 `PHPREDIS_SESSION:` 前缀沿用；序列化为 `php`，有效期仍为 259200 秒。兼容旧 `.env` 中不区分大小写的 `REDIS_PASSWORD=null` / `(null)` 无密码标记，不发送 AUTH；真实密码仍进行 URI 编码。不得把这些 token 改接 Laravel session 或 Sanctum。
 - Apple 登录和账号合并使用同一个受维护的 JWT 验证入口，校验签名、有效期、issuer、audience 和非空 subject。允许的 audience 默认来自 `GO_PUSH_IOS_TOPIC`、`GO_PUSH_IOS_CLIP_TOPIC`；额外的 Apple 服务 ID 须通过 `APPLE_CLIENT_IDS` 逗号列表明确配置。
 - WeChat 的请求参数和响应处理保留；外部请求使用现有 Laravel HTTP client 并设置 5 秒超时。
 - FPM/CLI 均关闭 `register_argc_argv` 和 session upload progress。Laravel 本身也已修复 Web 请求读取 CLI 环境参数的问题，Symfony 请求头解析使用修复后的实现。
