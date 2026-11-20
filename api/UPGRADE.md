@@ -1,8 +1,8 @@
 # API 安全升级（本地验证，未部署）
 
-维护分支的 API 独立镜像使用 PHP-FPM 8.4.28、Laravel 13.39.0、Redis 扩展 6.3.0、Composer 2.11.0。PHP 和 Composer 基础镜像均固定 digest。
+维护分支的 API 独立镜像使用 PHP-FPM 8.4.28、Laravel 13.40.0、Redis 扩展 6.3.0、Composer 2.11.0。PHP 和 Composer 基础镜像均固定 digest。
 
-主要依赖已锁定为 Symfony 8.1.10、Guzzle 7.16.1 / PSR-7 2.13.2、CommonMark 2.10.4、Flysystem 3.36.0、Carbon 3.15.1、firebase/php-jwt 7.2.1。Tinker/PsySH 仅用于开发，废弃的 Fruitcake CORS、Swiftmailer、Ignition 及内嵌旧 JWT 的 Apple 登录库已移除。
+主要依赖已锁定为 Symfony HttpFoundation、HttpKernel、Routing 和 YAML 8.1.11，以及 Guzzle 7.16.1 / PSR-7 2.13.2、CommonMark 2.10.4、Flysystem 3.36.0、Carbon 3.15.1、firebase/php-jwt 7.2.1。Tinker/PsySH 仅用于开发，废弃的 Fruitcake CORS、Swiftmailer、Ignition 及内嵌旧 JWT 的 Apple 登录库已移除。
 
 ## 本地构建与回归
 
