@@ -1,4 +1,4 @@
-# API 安全升级（本地验证，未部署）
+# API 安全升级与回归
 
 维护分支的 API 独立镜像使用 PHP-FPM 8.4.28、Laravel 13.40.0、Redis 扩展 6.3.0、Composer 2.11.0。PHP 和 Composer 基础镜像均固定 digest。
 
@@ -35,7 +35,7 @@ docker build --platform linux/amd64 -f docker/web/Dockerfile.api -t pushdeer-api
 - WeChat 的请求参数和响应处理保留；外部请求使用现有 Laravel HTTP client 并设置 5 秒超时。
 - FPM/CLI 均关闭 `register_argc_argv` 和 session upload progress。Laravel 本身也已修复 Web 请求读取 CLI 环境参数的问题，Symfony 请求头解析使用修复后的实现。
 - API 镜像通过 Supervisor 管理 Apache、仅监听 loopback 的 FPM，以及继承容器环境变量的 `artisan schedule:work`；旧消息清理仍每小时运行。
-- 没有新增业务表迁移。后续上线仍需备份数据库、保持 APP_KEY 与 Redis 配置一致，并核对清理保留天数及 Apple audience；本次没有执行上线操作。
+- 没有新增业务表迁移。后续上线仍需备份数据库、保持 APP_KEY 与 Redis 配置一致，并核对清理保留天数及 Apple audience。
 
 ## 尚未覆盖
 
