@@ -1,4 +1,4 @@
-FROM php:8.4.27-fpm-bookworm@sha256:1b6bb4f3d32dfbcd1e159d7bd47caa8852507f61666db7731d73f34acec781b6 AS base
+FROM php:8.4.28-fpm-bookworm@sha256:e4b1eec29a5be22428aa93fb43da75a0e39006e403da0c3e93631dde92f067df AS base
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends apache2 supervisor unzip \
